@@ -1,0 +1,81 @@
+# Start a Jenkins agent
+source ~/Development/docker/init
+
+# Set this to 1 to always restart an agent
+FORCE_RESTART=
+
+if [ -n "$1" ]
+then 
+	agent_name=$1
+else
+	agent_name=local-agent1
+fi
+
+# Check if the agent is running
+val=`docker ps | grep $agent_name`
+if [ -n "$val" ]
+then
+	echo $agent_name is already running
+	if [ -z $FORCE_RESTART ]
+	then
+		exit 0
+	fi
+	echo "  stopping it..."
+	docker stop $agent_name
+fi
+
+val=`docker ps -a | grep $agent_name`
+if [ -n "$val" ]
+then
+	echo A container for $agent_name already exists
+	if [ -z $FORCE_RESTART ]
+	then
+		echo "  restarting it..."
+		docker start $agent_name
+		exit 0
+	fi
+	echo "  removing it..."
+	docker rm $agent_name
+fi
+
+# Check if the agent exists
+if [[ $agent_name = cloud-* ]]
+then
+	image_name="emittman1002/cloud-jenkins-agent"
+	base_image_name=jenkins/agent
+else
+	image_name="emittman1002/local-jenkins-agent"
+	base_image_name=jenkins/inbound-agent
+fi
+
+val=`docker image ls | grep $image_name`
+if [ -z "$val" ]
+then
+	export base_image_name
+	echo Building image $image_name from $base_image_name
+	docker build -t $image_name:latest --build-arg BASE_IMAGE_NAME=$base_image_name -f agent.dockerfile .
+fi
+
+# Start a new container
+echo Starting agent $agent_name
+
+NETWORK_STUFF="--network ednet"
+MOUNT_STUFF="--mount type=bind,source=/Users/emittman/.m2,target=/home/jenkins/.m2"
+WORKDIR_STUFF="-workDir=/home/jenkins/agent/$agent-name"
+URL_STUFF="-url http://jenkins-server:8080"
+
+SECRET_STUFF=`cat $agent_name.secret`
+
+cmd="docker run --name $agent_name -d $NETWORK_STUFF $MOUNT_STUFF --init $image_name $WORKDIR_STUFF $URL_STUFF $SECRET_STUFF $agent_name"
+echo $cmd
+container_id=`exec $cmd`
+echo $container_id
+sleep 1
+
+val=`docker ps | grep $container_id`
+if [ -z "$val" ]
+then
+	echo Logs:
+	docker logs $container_id
+fi
+

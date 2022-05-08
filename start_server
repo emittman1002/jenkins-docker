@@ -1,0 +1,83 @@
+# Start a Jenkins server
+source ~/Development/docker/init
+
+# Set this to 1 to always start a new server
+FORCE_RESTART=
+
+# Determine server name
+if [ -n "$1" ]
+then 
+	server_name=$1
+else
+	server_name=jenkins-server
+fi
+
+# Check if the server is already running
+# of if there's an existing container for it
+# that we can just restart
+val=`docker ps | grep $server_name`
+if [ -n "$val" ]
+then
+	echo A container named $server_name is already running
+	if [ -n $FORCE_RESTART ]
+	then
+		exit 0
+	fi
+	echo '  Stopping it...'
+	docker stop $server_name
+fi
+
+val=`docker ps -a | grep $server_name`
+if [ -n "$val" ]
+then
+	echo A container named $server_name already exists
+	if [ -n $FORCE_RESTART ]
+	then
+		echo "  restarting it..."
+		docker start $server_name
+		exit 0
+	fi
+	echo '  Removing it...'
+	docker rm $server_name
+fi
+
+# Ensure there's a network
+network_name=ednet
+val=`docker network ls | grep $network_name`
+
+if [ -z "$val" ]
+then
+	 docker network create $network_name
+fi
+
+
+# Ensure there's a volume
+volume_name=jenkins-volume
+val=`docker volume ls | grep $volume_name`
+
+if [ -z "$val" ]
+then
+	 docker volume create \
+		--driver local \
+		--label type=jenkins \
+		$volume_name
+fi
+
+# Create an image
+image_name='emittman1002/jenkins'
+docker build -t $image_name -f server.dockerfile --build-arg JENKINS_URL=https://localhost:8080 .
+
+# Start the server
+echo Starting server $server_name
+
+NETWORK_STUFF="--network $network_name"
+# MOUNT_STUFF="-v $volume_name:/home/jenkins"
+MOUNT_STUFF=""
+WORKDIR_STUFF=""
+SHUTDOWN_STUFF=""
+
+PORT_STUFF="-p 8080:8080 -p 50000:50000"
+
+cmd="docker run $SHUTDOWN_STUFF --name $server_name -d $NETWORK_STUFF $PORT_STUFF $MOUNT_STUFF $image_name"
+exec $cmd
+
