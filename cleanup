@@ -1,6 +1,8 @@
 clear
 
-c=`docker ps | grep emittman1002/jenkins`
+# Cleanup the agent
+export name=inbound-agent1
+c=`docker ps | grep $name`
 if [ -n "$c" ]
 then
     c=`echo $c | awk '{print $1}'`
@@ -8,7 +10,7 @@ then
     docker stop $c
 fi
 
-c=`docker ps -a | grep emittman1002/jenkins`
+c=`docker ps -a | grep $name`
 if [ -n "$c" ]
 then
     c=`echo $c | awk '{print $1}'`
@@ -16,7 +18,25 @@ then
     docker rm $c
 fi
 
-i=`docker images | grep emittman1002/jenkins`
+# Cleanup the server
+export name=emittman1002/jenkins
+c=`docker ps | grep $name`
+if [ -n "$c" ]
+then
+    c=`echo $c | awk '{print $1}'`
+    echo Stopping container \"$c\"
+    docker stop $c
+fi
+
+c=`docker ps -a | grep $name`
+if [ -n "$c" ]
+then
+    c=`echo $c | awk '{print $1}'`
+    echo Deleting container \"$c\"
+    docker rm $c
+fi
+
+i=`docker images | grep $name`
 if [ -n "$i" ]
 then
     i=`echo $i | awk '{print $3}'`

@@ -113,7 +113,10 @@ java -jar ./$cli_jar -s $JENKINS_URL -auth $ADMIN_USER_ID:$ADMIN_USER_PWD create
 rm -f $agent_name.xml
 rm -f $CLI_JAR
 
+# Grab the secret for the agent
+curl -u $ADMIN_USER_ID:$ADMIN_USER_PWD $JENKINS_URL/computer/$agent_name/ | awk -f secret.awk > $agent_name.secret
+
 # Start the agent and connect it to the server
 # echo ***** Starting agent $agent_name *****
-# ./start_agent $agent_name
+./start_agent $agent_name
 
