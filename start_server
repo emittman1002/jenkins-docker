@@ -1,16 +1,10 @@
 # Start a Jenkins server
+# with an inbound agent
 source ~/Development/docker/init
+source ./start_server.config
 
 # Set this to 1 to always start a new server
 FORCE_RESTART=
-
-# Determine server name
-if [ -n "$1" ]
-then 
-	server_name=$1
-else
-	server_name=jenkins-server
-fi
 
 # Check if the server is already running
 # of if there's an existing container for it
@@ -42,42 +36,84 @@ then
 fi
 
 # Ensure there's a network
-network_name=ednet
 val=`docker network ls | grep $network_name`
-
 if [ -z "$val" ]
 then
-	 docker network create $network_name
+	echo ***** Creating network $network_name *****
+	docker network create $network_name
 fi
 
 
 # Ensure there's a volume
-volume_name=jenkins-volume
 val=`docker volume ls | grep $volume_name`
-
 if [ -z "$val" ]
 then
+	echo ***** Creating volume $volume_name *****
 	 docker volume create \
 		--driver local \
 		--label type=jenkins \
 		$volume_name
 fi
 
-# Create an image
-image_name='emittman1002/jenkins'
-docker build -t $image_name -f server.dockerfile --build-arg JENKINS_URL=https://localhost:8080 .
+# Ensure there's an image
+export JENKINS_URL=http://localhost:$JENKINS_PORT
+
+val=`docker image ls | grep $image_name`
+if [ -z "$val" ]
+then
+	echo ***** Building image $image_name for platform $BUILDPLATFORM *****
+	docker build -t $image_name \
+		-f server.dockerfile \
+		--build-arg BASE_IMAGE_NAME=$BASE_IMAGE_NAME \
+		--build-arg JENKINS_URL=$JENKINS_URL \
+		--build-arg CASC_CONFIG_FILE=$CASC_CONFIG_FILE \
+		--build-arg PLUGINS_FILE=$PLUGINS_FILE \
+		--build-arg ADMIN_USER_ID=$ADMIN_USER_ID \
+		--build-arg ADMIN_USER_PWD=$ADMIN_USER_PWD \
+		--build-arg ADMIN_USER_NAME=$ADMIN_USER_NAME \
+		.
+fi
 
 # Start the server
-echo Starting server $server_name
+echo ***** Starting server $server_name *****
 
 NETWORK_STUFF="--network $network_name"
-# MOUNT_STUFF="-v $volume_name:/home/jenkins"
-MOUNT_STUFF=""
+MOUNT_STUFF="-v $volume_name:/home/jenkins"
+PORT_STUFF="-p $JENKINS_PORT:$JENKINS_PORT -p $JENKINS_AGENT_PORT:$JENKINS_AGENT_PORT"
 WORKDIR_STUFF=""
-SHUTDOWN_STUFF=""
+SHUTDOWN_STUFF="--restart always"
+SHUTDOWN_STUFF="--rm"
+SECURITY_STUFF="--env ADMIN_USER_ID=$ADMIN_USER_ID --env ADMIN_USER_NAME=$ADMIN_USER_NAME --env ADMIN_USER_PWD=$ADMIN_USER_PWD"
 
-PORT_STUFF="-p 8080:8080 -p 50000:50000"
+cmd="docker run -d $SHUTDOWN_STUFF --name $server_name $NETWORK_STUFF $PORT_STUFF $MOUNT_STUFF $SECURITY_STUFF $image_name"
+container_id=`$cmd`
 
-cmd="docker run $SHUTDOWN_STUFF --name $server_name -d $NETWORK_STUFF $PORT_STUFF $MOUNT_STUFF $image_name"
-exec $cmd
+# Make sure the server started
+last=$?
+if [[ $last -ne 0 ]]
+then
+	exit $last
+fi
+
+echo Waiting for server container $container_id to start...
+sleep 15
+
+# Configure an agent in the running server
+export agent_name=inbound-agent1
+
+export cli_jar=jenkins-cli.jar
+if [ ! -f "$cli_jar" ]
+then
+	# Get a copy of the CLI from the running server
+	curl $JENKINS_URL/jnlpJars/$cli_jar --output $cli_jar
+fi
+# Create XML configuration for the agent
+sed "s/#AGENT_NAME#/$agent_name/g" inbound-agent-template.xml > $agent_name.xml
+java -jar ./$cli_jar -s $JENKINS_URL -auth $ADMIN_USER_ID:$ADMIN_USER_PWD create-node $agent_name < $agent_name.xml 
+rm -f $agent_name.xml
+rm -f $CLI_JAR
+
+# Start the agent and connect it to the server
+# echo ***** Starting agent $agent_name *****
+# ./start_agent $agent_name
 

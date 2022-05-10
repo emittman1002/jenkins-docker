@@ -1,0 +1,21 @@
+#AGENT_NAME#
+<slave>
+<name>#AGENT_NAME#</name>
+<description>Local inbound agent</description>
+<remoteFS>/home/jenkins/#AGENT_NAME#</remoteFS>
+<numExecutors>1</numExecutors>
+<mode>NORMAL</mode>
+<retentionStrategy class="hudson.slaves.RetentionStrategy$Always"/>
+<launcher class="hudson.slaves.JNLPLauncher">
+<credentialsId>6ae21fb24c070886fea54eff2b7b37b8aca58f7930428ec3025f3ba8258c4d44</credentialsId>
+<workDirSettings>
+<disabled>false</disabled>
+<internalDir>remoting</internalDir>
+<failIfWorkDirIsMissing>false</failIfWorkDirIsMissing>
+</workDirSettings>
+<webSocket>false</webSocket>
+</launcher>
+<label>java python npm</label>
+<nodeProperties/>
+</slave>
+

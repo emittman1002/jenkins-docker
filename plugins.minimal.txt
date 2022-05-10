@@ -1,0 +1,12 @@
+antisamy-markup-formatter:latest
+configuration-as-code:latest
+config-file-provider:latest
+credentials-binding:latest
+pipeline-github-lib:latest
+git:latest
+github:latest
+matrix-auth:latest
+pam-auth:latest
+docker-commons:latest
+docker-workflow:latest
+workflow-basic-steps:latest

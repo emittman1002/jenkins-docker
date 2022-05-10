@@ -7,3 +7,4 @@ jenkins_setup.js
 *.tmp
 .DS_Store
 *.swp
+*.config
