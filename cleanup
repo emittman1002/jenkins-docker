@@ -18,6 +18,14 @@ then
     docker rm $c
 fi
 
+i=`docker images | grep $name`
+if [ -n "$i" ]
+then
+    i=`echo $i | awk '{print $3}'`
+    echo Deleting image \"$i\"
+    docker image rm $i
+fi
+
 # Cleanup the server
 export name=emittman1002/jenkins
 c=`docker ps | grep $name`
